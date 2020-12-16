@@ -1,8 +1,10 @@
+use std::str::FromStr;
+
 use crate::parsing;
 
 pub enum Validator {
     SledRental,
-    Toboggan
+    Toboggan,
 }
 
 struct PasswordRule {
@@ -14,7 +16,7 @@ struct PasswordRule {
 pub fn count_valid_passwords(validator: Validator) -> i32 {
     let validation_fn = match validator {
         Validator::SledRental => is_valid_password_for_sled_rental,
-        Validator::Toboggan => is_valid_password_for_toboggan
+        Validator::Toboggan => is_valid_password_for_toboggan,
     };
 
     let lines = parsing::parse_input::<String>("resources/day2/input.txt");
@@ -29,29 +31,49 @@ pub fn count_valid_passwords(validator: Validator) -> i32 {
 }
 
 fn is_password_on_line_valid(line: &str, validator: fn(&PasswordRule, &str) -> bool) -> bool {
-    let rule = parse_password_rule_from_line(line);
-    let password = parse_password_from_line(line);
+    let rule = match parse_password_rule_from_line(line) {
+        Some(_rule) => _rule,
+        _ => return false,
+    };
+
+    let password = match parse_password_from_line(line) {
+        Some(_password) => _password,
+        _ => return false,
+    };
+
     validator(&rule, password)
 }
 
-fn parse_password_rule_from_line(line: &str) -> PasswordRule {
-    let first_index = line.find('-').unwrap();
-    let second_index = line.find(' ').unwrap();
-    let third_index = line.find(":").unwrap();
-    let lower_bound = line[..first_index].parse::<i32>().unwrap();
-    let upper_bound = line[first_index + 1..second_index].parse::<i32>().unwrap();
-    let required_char = line[third_index - 1..third_index].parse::<char>().unwrap();
+fn parse_password_rule_from_line(line: &str) -> Option<PasswordRule> {
+    let first_index = line.find('-')?;
+    let second_index = line.find(' ')?;
+    let third_index = line.find(":")?;
 
-    PasswordRule {
+    let lower_bound = parse_from_str::<i32>(&line[..first_index])?;
+    let upper_bound = parse_from_str::<i32>(&line[first_index + 1..second_index])?;
+    let required_char = parse_from_str::<char>(&line[third_index - 1..third_index])?;
+
+    Some(PasswordRule {
         min_occurences: lower_bound,
         max_occurences: upper_bound,
         required_character: required_char,
+    })
+}
+
+fn parse_from_str<T: FromStr>(string: &str) -> Option<T> {
+    match string.parse::<T>() {
+        Ok(value) => Some(value),
+        _ => None
     }
 }
 
-fn parse_password_from_line(line: &str) -> &str {
-    let index = line.find(": ").unwrap();
-    return &line[index + 1..];
+fn parse_password_from_line(line: &str) -> Option<&str> {
+    let index = match line.find(": ") {
+        Some(number) => number,
+        _ => return None,
+    };
+
+    Some(&line[index + 1..])
 }
 
 fn is_valid_password_for_sled_rental(password_rule: &PasswordRule, password: &str) -> bool {
